@@ -241,17 +241,24 @@ def page_url(d):
     return f"{base}/{d:%Y-%m-%d}.html" if base else ""
 
 
+def env_clean(name):
+    """Secret 앞뒤의 공백·줄바꿈·따옴표를 제거한다."""
+    return os.environ.get(name, "").strip().strip("\"'").strip()
+
+
 def kakao_access_token():
-    data = {
-        "grant_type": "refresh_token",
-        "client_id": os.environ["KAKAO_REST_API_KEY"],
-        "refresh_token": os.environ["KAKAO_REFRESH_TOKEN"],
-    }
-    if os.environ.get("KAKAO_CLIENT_SECRET"):
-        data["client_secret"] = os.environ["KAKAO_CLIENT_SECRET"]
+    key = env_clean("KAKAO_REST_API_KEY")
+    secret = env_clean("KAKAO_CLIENT_SECRET")
+    refresh = env_clean("KAKAO_REFRESH_TOKEN")
+    data = {"grant_type": "refresh_token", "client_id": key, "refresh_token": refresh}
+    if secret:
+        data["client_secret"] = secret
     r = requests.post("https://kauth.kakao.com/oauth/token", data=data, timeout=20)
     if r.status_code != 200:
-        sys.exit(f"카카오 토큰 갱신 실패: {r.status_code} {r.text}\n→ kakao_auth.py로 refresh token을 다시 발급하세요.")
+        # 값 자체는 출력하지 않고 길이만 보여 준다 (REST API 키·시크릿은 보통 32자)
+        print(f"[진단] REST_API_KEY 길이={len(key)}, CLIENT_SECRET 길이={len(secret)}"
+              f"{'(미설정)' if not secret else ''}, REFRESH_TOKEN 길이={len(refresh)}", file=sys.stderr)
+        sys.exit(f"카카오 토큰 갱신 실패: {r.status_code} {r.text}\n→ 키/시크릿을 확인하거나 kakao_auth.py로 refresh token을 다시 발급하세요.")
     j = r.json()
     if j.get("refresh_token"):  # 만료가 가까우면 새 토큰이 내려온다
         (ROOT / "new_refresh_token.txt").write_text(j["refresh_token"])
