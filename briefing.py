@@ -120,17 +120,47 @@ def build_prompt(articles):
             + "\n".join(lines) + "\n\n출력 JSON 형식:\n" + json.dumps(schema, ensure_ascii=False, indent=1))
 
 
-def summarize(articles):
-    import anthropic
+GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
 
-    client = anthropic.Anthropic()
-    msg = client.messages.create(
-        model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5"),
-        max_tokens=8000,
-        system=SYSTEM,
-        messages=[{"role": "user", "content": build_prompt(articles)}],
-    )
-    text = "".join(b.text for b in msg.content if b.type == "text")
+
+def call_gemini(prompt):
+    """Gemini REST API 호출. 모델이 없거나(404) 한도(429)에 걸리면 다음 모델로 넘어간다."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        sys.exit("GEMINI_API_KEY가 설정되지 않았습니다. GitHub Secrets에 등록하세요.")
+    models = [m for m in [os.environ.get("GEMINI_MODEL")] + GEMINI_FALLBACK_MODELS if m]
+    body = {
+        "systemInstruction": {"parts": [{"text": SYSTEM}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 8192, "temperature": 0.3},
+    }
+    last = ""
+    for model in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        for attempt in range(3):
+            r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                              json=body, timeout=180)
+            if r.status_code in (429, 500, 503) and attempt < 2:
+                time.sleep(20 * (attempt + 1))
+                continue
+            break
+        if r.status_code == 200:
+            try:
+                parts = r.json()["candidates"][0]["content"]["parts"]
+                text = "".join(p.get("text", "") for p in parts)
+            except (KeyError, IndexError):
+                last = f"{model}: 응답 형식 오류 {r.text[:300]}"
+                print(f"[경고] {last}", file=sys.stderr)
+                continue
+            print(f"[요약] 사용 모델: {model}")
+            return text
+        last = f"{model}: HTTP {r.status_code} {r.text[:300]}"
+        print(f"[경고] {last}", file=sys.stderr)
+    sys.exit(f"Gemini 호출 실패 — 마지막 오류: {last}")
+
+
+def summarize(articles):
+    text = call_gemini(build_prompt(articles))
     data = json.loads(text[text.index("{"): text.rindex("}") + 1])
     allowed = {a["link"] for v in articles.values() for a in v}
     for t in data.get("top5", []):
