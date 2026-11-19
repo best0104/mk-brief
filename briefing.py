@@ -106,10 +106,12 @@ def build_prompt(articles):
         for i, a in enumerate(articles[key], 1):
             lines.append(f"{i}. [{a['ts']}] {a['title']}\n   요약: {a['summary']}\n   link: {a['link']}")
     schema = {
-        "headline": "오늘 시장을 한 문장으로",
+        "headline": "오늘 시장을 한 문장으로 (60자 이내)",
+        "kakao": {k: "이 분야 오늘의 핵심을 3개 항목으로, 항목마다 '· '로 시작해 줄바꿈, 전체 150자 이내" for k, _, _ in SECTIONS},
         "sections": {k: [{"topic": t, "text": "1~2문장"} for t in topics] for k, _, topics in SECTIONS},
         "top5": [{
             "rank": 1, "section": "economy|stock|realestate|it", "title": "기사 제목",
+            "one_line": "핵심을 35자 이내 한 줄로",
             "summary": ["핵심 1", "핵심 2", "핵심 3"],
             "market_impact": "시장에 미치는 영향 1~2문장",
             "investment_point": "투자 관점에서 주목할 점 1~2문장",
@@ -238,12 +240,27 @@ def clip(s, n):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def digest_text(data, d):
-    lines = [f"📰 매일경제 모닝브리핑 {d.month}/{d.day}({WEEKDAYS[d.weekday()]})", "🔥 TOP5"]
+def fallback_brief(data, key):
+    """kakao 요약이 없을 때 섹션 본문에서 짧게 만든다."""
+    items = data.get("sections", {}).get(key, [])
+    return "\n".join("· " + clip(b.get("text", ""), 48) for b in items[:3])
+
+
+def build_messages(data, d):
+    """카톡 기본 텍스트 템플릿(200자 제한)에 맞춰 메시지 여러 개로 나눈다."""
+    msgs = []
+    head = f"📰 매일경제 모닝브리핑 {d.month}/{d.day}({WEEKDAYS[d.weekday()]})"
+    if data.get("headline"):
+        head += "\n" + clip(data["headline"], 120)
+    msgs.append(clip(head, 200))
+    for key, title, _ in SECTIONS:
+        body = (data.get("kakao", {}) or {}).get(key) or fallback_brief(data, key)
+        msgs.append(clip(f"{title}\n{body}", 200))
+    lines = ["🔥 오늘의 핵심 뉴스 TOP5"]
     for t in data.get("top5", [])[:5]:
-        lines.append(f"{t.get('rank')}. {clip(t.get('title', ''), 24)}")
-    text = "\n".join(lines)
-    return clip(text, 200)  # 카카오 기본 텍스트 템플릿 한도: 200자
+        lines.append(f"{t.get('rank')}. {clip(t.get('one_line') or t.get('title', ''), 34)}")
+    msgs.append(clip("\n".join(lines), 200))
+    return msgs
 
 
 def page_url(d):
@@ -301,7 +318,7 @@ def cmd_build(args):
     (DOCS / f"{d:%Y-%m-%d}.html").write_text(page, encoding="utf-8")
     (DOCS / "index.html").write_text(page, encoding="utf-8")
     (OUT / "digest.json").write_text(
-        json.dumps({"text": digest_text(data, d), "date": f"{d:%Y-%m-%d}"}, ensure_ascii=False), encoding="utf-8")
+        json.dumps({"messages": build_messages(data, d), "date": f"{d:%Y-%m-%d}"}, ensure_ascii=False), encoding="utf-8")
     print(f"[완료] docs/{d:%Y-%m-%d}.html 생성")
 
 
@@ -309,27 +326,29 @@ def cmd_send(args):
     d = today_kst()
     digest = json.loads((OUT / "digest.json").read_text(encoding="utf-8"))
     url = page_url(d) or "https://www.mk.co.kr/"
-    template = {
-        "object_type": "text",
-        "text": digest["text"],
-        "link": {"web_url": url, "mobile_web_url": url},
-        "button_title": "전체 브리핑 보기",
-    }
+
+    def template(text):
+        return {"object_type": "text", "text": text,
+                "link": {"web_url": url, "mobile_web_url": url}, "button_title": "전체 브리핑 보기"}
+
     if args.dry_run:
-        print(json.dumps(template, ensure_ascii=False, indent=2), f"\n(글자 수 {len(digest['text'])})")
+        for i, m in enumerate(digest["messages"], 1):
+            print(f"--- 메시지 {i} ({len(m)}자) ---\n{m}\n")
         return
     if page_url(d) and not wait_for_page(url):
         print("[경고] 페이지가 아직 배포되지 않았지만 전송을 계속합니다.", file=sys.stderr)
     token = kakao_access_token()
-    r = requests.post(
-        "https://kapi.kakao.com/v2/api/talk/memo/default/send",
-        headers={"Authorization": f"Bearer {token}"},
-        data={"template_object": json.dumps(template, ensure_ascii=False)},
-        timeout=20,
-    )
-    if r.status_code != 200 or r.json().get("result_code") != 0:
-        sys.exit(f"카카오 전송 실패: {r.status_code} {r.text}")
-    print("[완료] 카카오톡 전송 성공")
+    for i, m in enumerate(digest["messages"], 1):
+        r = requests.post(
+            "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+            headers={"Authorization": f"Bearer {token}"},
+            data={"template_object": json.dumps(template(m), ensure_ascii=False)},
+            timeout=20,
+        )
+        if r.status_code != 200 or r.json().get("result_code") != 0:
+            sys.exit(f"카카오 전송 실패(메시지 {i}): {r.status_code} {r.text}")
+        time.sleep(1.5)  # 도착 순서 보장
+    print(f"[완료] 카카오톡 {len(digest['messages'])}건 전송 성공")
 
 
 def main():
