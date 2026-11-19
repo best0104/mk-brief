@@ -45,7 +45,7 @@ def strip_html(s):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
 
 
-def collect(per_section=12, hours=30):
+def collect(per_section=10, hours=30):
     import feedparser
 
     feeds = json.loads((ROOT / "feeds.json").read_text(encoding="utf-8"))
@@ -120,7 +120,7 @@ def build_prompt(articles):
             + "\n".join(lines) + "\n\n출력 JSON 형식:\n" + json.dumps(schema, ensure_ascii=False, indent=1))
 
 
-GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
+GEMINI_FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash"]
 
 
 def call_gemini(prompt):
@@ -137,13 +137,23 @@ def call_gemini(prompt):
     last = ""
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        for attempt in range(3):
-            r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                              json=body, timeout=180)
-            if r.status_code in (429, 500, 503) and attempt < 2:
-                time.sleep(20 * (attempt + 1))
+        r = None
+        for attempt in range(2):
+            try:
+                r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                                  json=body, timeout=90)
+            except requests.RequestException as e:  # 시간 초과·연결 오류 → 재시도 후 다음 모델
+                last = f"{model}: {type(e).__name__}"
+                print(f"[경고] {last} (시도 {attempt + 1}/2)", file=sys.stderr)
+                r = None
+                time.sleep(10)
+                continue
+            if r.status_code in (429, 500, 503) and attempt < 1:
+                time.sleep(20)
                 continue
             break
+        if r is None:
+            continue
         if r.status_code == 200:
             try:
                 parts = r.json()["candidates"][0]["content"]["parts"]
