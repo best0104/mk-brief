@@ -1,0 +1,7 @@
+{
+  "_note": "RSS 주소(숫자 ID)는 https://www.mk.co.kr/rss 페이지에서 각 섹션의 주소를 확인해 맞게 고쳐주세요. 한 섹션에 여러 개를 넣어도 됩니다.",
+  "economy":    { "label": "경제",   "urls": ["https://www.mk.co.kr/rss/30100041/"] },
+  "stock":      { "label": "주식",   "urls": ["https://www.mk.co.kr/rss/50200011/"] },
+  "realestate": { "label": "부동산", "urls": ["https://www.mk.co.kr/rss/50300009/"] },
+  "it":         { "label": "IT",     "urls": ["https://www.mk.co.kr/rss/50700001/"] }
+}

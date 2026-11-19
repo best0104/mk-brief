@@ -1,0 +1,32 @@
+{
+  "headline": "(샘플) 금리·환율 변동성 속에 반도체 중심 장세, 수도권 아파트는 관망세.",
+  "sections": {
+    "economy": [
+      {"topic": "금리 및 환율 주요 변화", "text": "샘플 문장입니다. 실제 실행 시 AI가 오늘 기사 기준으로 채웁니다."},
+      {"topic": "국내외 경기 흐름", "text": "샘플 문장입니다."},
+      {"topic": "정부 경제정책 및 주요 이슈", "text": "샘플 문장입니다."}
+    ],
+    "stock": [
+      {"topic": "코스피·코스닥 주요 이슈", "text": "샘플 문장입니다."},
+      {"topic": "반도체·AI·2차전지 관련 종목", "text": "샘플 문장입니다."},
+      {"topic": "오늘 주목할 업종 및 투자 포인트", "text": "샘플 문장입니다."}
+    ],
+    "realestate": [
+      {"topic": "서울·수도권 아파트 시장", "text": "샘플 문장입니다."},
+      {"topic": "부동산 정책 및 대출 규제", "text": "샘플 문장입니다."},
+      {"topic": "금리와 부동산 시장 영향", "text": "샘플 문장입니다."}
+    ],
+    "it": [
+      {"topic": "AI 및 생성형 AI 기술", "text": "샘플 문장입니다."},
+      {"topic": "반도체·클라우드·데이터센터", "text": "샘플 문장입니다."},
+      {"topic": "주요 IT 기업 동향", "text": "샘플 문장입니다."}
+    ]
+  },
+  "top5": [
+    {"rank": 1, "section": "economy", "title": "샘플 뉴스 제목 1", "summary": ["핵심 1", "핵심 2", "핵심 3"], "market_impact": "시장 영향 샘플", "investment_point": "투자 포인트 샘플", "link": "https://www.mk.co.kr/"},
+    {"rank": 2, "section": "stock", "title": "샘플 뉴스 제목 2", "summary": ["핵심 1", "핵심 2", "핵심 3"], "market_impact": "시장 영향 샘플", "investment_point": "투자 포인트 샘플", "link": "https://www.mk.co.kr/"},
+    {"rank": 3, "section": "realestate", "title": "샘플 뉴스 제목 3", "summary": ["핵심 1", "핵심 2", "핵심 3"], "market_impact": "시장 영향 샘플", "investment_point": "투자 포인트 샘플", "link": "https://www.mk.co.kr/"},
+    {"rank": 4, "section": "it", "title": "샘플 뉴스 제목 4", "summary": ["핵심 1", "핵심 2", "핵심 3"], "market_impact": "시장 영향 샘플", "investment_point": "투자 포인트 샘플", "link": "https://www.mk.co.kr/"},
+    {"rank": 5, "section": "stock", "title": "샘플 뉴스 제목 5", "summary": ["핵심 1", "핵심 2", "핵심 3"], "market_impact": "시장 영향 샘플", "investment_point": "투자 포인트 샘플", "link": "https://www.mk.co.kr/"}
+  ]
+}
