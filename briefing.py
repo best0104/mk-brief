@@ -250,9 +250,13 @@ def build_messages(data, d):
     """카톡 기본 텍스트 템플릿(200자 제한)에 맞춰 메시지 여러 개로 나눈다."""
     msgs = []
     head = f"📰 매일경제 모닝브리핑 {d.month}/{d.day}({WEEKDAYS[d.weekday()]})"
+    url = page_url(d)
+    room = 200 - len(head) - (len(url) + 4 if url else 0) - 2  # 주소를 넣을 자리를 남긴다
     if data.get("headline"):
-        head += "\n" + clip(data["headline"], 120)
-    msgs.append(clip(head, 200))
+        head += "\n" + clip(data["headline"], max(room, 30))
+    if url:
+        head += "\n🔗 " + url  # 채팅에 적힌 주소는 카톡이 자동으로 링크 처리한다
+    msgs.append(head if len(head) <= 200 else clip(head, 200))
     for key, title, _ in SECTIONS:
         body = (data.get("kakao", {}) or {}).get(key) or fallback_brief(data, key)
         msgs.append(clip(f"{title}\n{body}", 200))
